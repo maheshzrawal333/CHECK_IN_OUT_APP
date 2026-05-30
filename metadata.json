@@ -1,0 +1,6 @@
+{
+  "name": "VerifyMe",
+  "description": "Employee presence verification via Biometric and BLE",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
