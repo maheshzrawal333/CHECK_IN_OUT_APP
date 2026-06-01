@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-  namespace = "com.maheshz"
+  namespace = "com.maheshz.checkinout"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.checkinout.zxcvbn"
+    applicationId = "com.maheshz.checkinout"
     minSdk = 24
     targetSdk = 36
     versionCode = 1
