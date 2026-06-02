@@ -17,7 +17,7 @@ import androidx.navigation.compose.*
 import com.maheshz.checkinout.ui.screens.HistoryScreen
 import com.maheshz.checkinout.ui.screens.HomeScreen
 import com.maheshz.checkinout.ui.screens.ProfileScreen
-import com.maheshz.checkinout.ui.screens.RegistrationScreen
+import com.maheshz.checkinout.ui.screens.ActivationScreen // 🌟 FIXED: Imported new Activation Screen
 import com.maheshz.checkinout.ui.theme.MyApplicationTheme
 import com.maheshz.checkinout.ui.viewmodel.CheckInViewModel
 import com.maheshz.checkinout.ui.viewmodel.RegistrationViewModel
@@ -38,7 +38,6 @@ import androidx.compose.ui.text.font.FontWeight
 import com.maheshz.checkinout.di.AppContainer
 import com.maheshz.checkinout.ui.screens.AIChatScreen
 import com.maheshz.checkinout.ui.screens.AIChatViewModel
-import com.maheshz.checkinout.ui.screens.WaitingForApprovalScreen
 import com.maheshz.checkinout.ui.theme.BrandPurple
 import com.maheshz.checkinout.ui.theme.LightGrayBorder
 import com.maheshz.checkinout.ui.theme.NavIndicator
@@ -55,8 +54,8 @@ class MainActivity : FragmentActivity() {
 
         setContent {
             MyApplicationTheme {
-                val token by container.dataStoreManager.accessTokenFlow.collectAsStateWithLifecycle(initialValue = null)
-                val isPending by container.dataStoreManager.isPendingFlow.collectAsStateWithLifecycle(initialValue = false)
+                // 🌟 PROFESSIONAL ROUTING: We now track the activation status via the presence of an employee code.
+                val empCode by container.dataStoreManager.employeeCodeFlow.collectAsStateWithLifecycle(initialValue = null)
 
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     val regVm: RegistrationViewModel = viewModel(
@@ -66,13 +65,16 @@ class MainActivity : FragmentActivity() {
                         )
                     )
 
-                    when {
-                        token != null -> MainApp(container)
-                        isPending -> {
-                            // 🌟 FIXED: WaitingForApprovalScreen now correctly receives the shared RegistrationViewModel instance
-                            WaitingForApprovalScreen(viewModel = regVm)
-                        }
-                        else -> RegistrationScreen(viewModel = regVm, onRegistered = {})
+                    // 🌟 FIXED: Direct to Activation or MainApp based on empCode presence
+                    if (empCode != null) {
+                        MainApp(container)
+                    } else {
+                        ActivationScreen(
+                            viewModel = regVm,
+                            onActivated = {
+                                // Empty lambda. DataStore update in ViewModel automatically triggers recomposition to MainApp!
+                            }
+                        )
                     }
                 }
             }

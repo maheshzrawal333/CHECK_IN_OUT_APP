@@ -3,7 +3,6 @@ package com.maheshz.checkinout.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.maheshz.checkinout.biometric.KeystoreManager
 import com.maheshz.checkinout.data.repository.AuthRepository
 import com.maheshz.checkinout.util.DataStoreManager
 import com.maheshz.checkinout.util.FingerprintSecurityManager
@@ -23,24 +22,6 @@ class RegistrationViewModel(
 
     private val _statusMessage = MutableStateFlow<String?>(null)
     val statusMessage: StateFlow<String?> = _statusMessage.asStateFlow()
-
-    // 🌟 This is the OLD method (You can keep it as a fallback or delete it later)
-    fun registerSimplified(orgCode: String, fullName: String, email: String) {
-        viewModelScope.launch {
-            _uiState.value = RegistrationState.Loading
-            try {
-                val localKeyAlias = fullName.replace("\\s+".toRegex(), "").lowercase()
-                val pubKeyBase64 = KeystoreManager.generateECKeyPair(localKeyAlias)
-                val deviceFingerprint = dataStoreManager.getDeviceFingerprint()
-
-                authRepository.registerSimplified(orgCode, fullName, email, pubKeyBase64, deviceFingerprint)
-
-                _uiState.value = RegistrationState.WaitingForApproval
-            } catch (e: Exception) {
-                _uiState.value = RegistrationState.Error(e.message ?: "Submission error")
-            }
-        }
-    }
 
     // 🌟 This is the NEW Enterprise Activation Method
     fun activateWithCode(activationCode: String) {
@@ -81,30 +62,6 @@ class RegistrationViewModel(
                 _uiState.value = RegistrationState.Error("Network error: ${e.message}")
             }
         }
-    }
-
-    // Keep this for backward compatibility if anyone is still stuck on the waiting screen
-    fun checkApprovalStatus() {
-        viewModelScope.launch {
-            try {
-                val status = authRepository.checkStatus()
-                when (status) {
-                    "APPROVED" -> { }
-                    "REJECTED" -> {
-                        _statusMessage.value = "Your request was Rejected by the Administrator."
-                        _uiState.value = RegistrationState.Idle
-                    }
-                    "PENDING" -> _statusMessage.value = "Still pending administrative approval..."
-                    "ERROR" -> _statusMessage.value = "Network error. Could not check status."
-                }
-            } catch (e: Exception) {
-                _statusMessage.value = "Connection Failed"
-            }
-        }
-    }
-
-    fun clearStatusMessage() {
-        _statusMessage.value = null
     }
 
     companion object {

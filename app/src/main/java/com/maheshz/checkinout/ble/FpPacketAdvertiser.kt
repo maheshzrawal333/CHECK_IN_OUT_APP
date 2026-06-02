@@ -29,24 +29,22 @@ class FpPacketAdvertiser(private val context: Context) {
             .setTimeout(10000)
             .build()
 
-        // PROFESSIONAL FIX: Packet structure [2] magic, [16] empCode, [4] timestamp, [64] signature = 86 bytes
-        // Note: Relies on modern Android hardware supporting BLE 5.0 Extended Advertising for >31 byte payloads.
-        val packet = ByteArray(86)
+        // 🌟 ENTERPRISE FIX: Increased packet size to 100 to safely hold a 72-byte DER ECDSA signature
+        val packet = ByteArray(100)
         packet[0] = 0xCD.toByte()
         packet[1] = 0xAB.toByte()
 
         val empBytes = employeeCode.padEnd(16, ' ').toByteArray(Charsets.UTF_8).copyOf(16)
         System.arraycopy(empBytes, 0, packet, 2, 16)
 
-        // Inject 4-byte Unix timestamp
         val t = timestamp.toInt()
         packet[18] = (t shr 24).toByte()
         packet[19] = (t shr 16).toByte()
         packet[20] = (t shr 8).toByte()
         packet[21] = t.toByte()
 
-        // Inject up to 64 bytes of ECDSA signature
-        System.arraycopy(signature, 0, packet, 22, minOf(signature.size, 64))
+        // Safely copy the entire signature without truncation
+        System.arraycopy(signature, 0, packet, 22, signature.size)
 
         val data = AdvertiseData.Builder()
             .addServiceUuid(ParcelUuid(BLE_RESPONSE_UUID))
