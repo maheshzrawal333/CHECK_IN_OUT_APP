@@ -56,7 +56,10 @@ class AppContainer(private val context: Context) {
     }
 
     val attendanceRepository: AttendanceRepository by lazy {
-        AttendanceRepository(appDatabase.attendanceDao())
+        AttendanceRepository(
+            dao = appDatabase.attendanceDao(), // 🌟 FIXED: Changed 'database' to 'appDatabase' to match your variable above
+            apiService = apiService
+        )
     }
 
     val iotBeaconScanner: IotBeaconScanner by lazy { IotBeaconScanner(context) }

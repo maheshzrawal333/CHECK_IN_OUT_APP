@@ -85,5 +85,11 @@ interface ApiService {
         @Query("fp") fingerprint: String
     ): Response<Map<String, String>>
 
-
+    @GET("/api/public/employee/scan-status/{empCode}")
+    suspend fun checkLatestScanStatus(@Path("empCode") empCode: String): Response<ScanStatusResponse>
 }
+
+data class ScanStatusResponse(
+    val status: String,      // "SUCCESS", "WAITING", or "IGNORED"
+    val eventType: String    // "CHECK_IN" or "CHECK_OUT"
+)

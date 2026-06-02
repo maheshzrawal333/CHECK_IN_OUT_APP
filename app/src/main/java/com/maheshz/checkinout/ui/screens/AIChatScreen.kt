@@ -1,11 +1,13 @@
 package com.maheshz.checkinout.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.*
@@ -35,7 +37,7 @@ class AIChatViewModel(
 ) : ViewModel() {
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
-    
+
     private var sessionId: String = ""
 
     init {
@@ -68,7 +70,6 @@ class AIChatViewModel(
             try {
                 val response = apiService.chat(ChatRequest(text, sessionId))
                 if (response.isSuccessful) {
-                    // Quick simulation of streaming or just loading full string
                     val resString = response.body()?.string() ?: "No response"
                     val filteredMsgs = _messages.value.filter { it !is ChatMessage.Typing }.toMutableList()
                     filteredMsgs.add(ChatMessage.AI(resString))
@@ -99,7 +100,8 @@ class AIChatViewModel(
 fun AIChatScreen(viewModel: AIChatViewModel) {
     val messages by viewModel.messages.collectAsState()
     var currentText by remember { mutableStateOf("") }
-    
+    val scrollState = rememberScrollState()
+
     val quickChips = listOf("How many days this month?", "What time yesterday?", "My hours this week", "Last 5 check-ins")
 
     Scaffold(
@@ -112,7 +114,9 @@ fun AIChatScreen(viewModel: AIChatViewModel) {
                     }
                 }
             )
-        }
+        },
+        // 🌟 FIXED: Ensures the keyboard pushes the chat UI up instead of covering it
+        modifier = Modifier.imePadding()
     ) { p ->
         Column(modifier = Modifier.padding(p).fillMaxSize()) {
             LazyColumn(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
@@ -136,9 +140,13 @@ fun AIChatScreen(viewModel: AIChatViewModel) {
                     }
                 }
             }
-            
-            Column(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
-                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+            Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(8.dp)) {
+                // 🌟 FIXED: Added horizontalScroll so chips don't overflow off the screen
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState).padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     quickChips.forEach { chip ->
                         SuggestionChip(onClick = { viewModel.sendMessage(chip) }, label = { Text(chip) })
                     }
@@ -148,15 +156,19 @@ fun AIChatScreen(viewModel: AIChatViewModel) {
                         value = currentText,
                         onValueChange = { currentText = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("Ask something...") }
+                        placeholder = { Text("Ask something...") },
+                        maxLines = 3
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(onClick = { 
-                        if(currentText.isNotBlank()) {
-                            viewModel.sendMessage(currentText)
-                            currentText = ""
-                        }
-                    }, modifier = Modifier.background(MaterialTheme.colorScheme.primaryContainer, CircleShape)) {
+                    IconButton(
+                        onClick = {
+                            if(currentText.isNotBlank()) {
+                                viewModel.sendMessage(currentText)
+                                currentText = ""
+                            }
+                        },
+                        modifier = Modifier.background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                    ) {
                         Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 }

@@ -1,7 +1,9 @@
 package com.maheshz.checkinout
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
@@ -17,21 +19,16 @@ import androidx.navigation.compose.*
 import com.maheshz.checkinout.ui.screens.HistoryScreen
 import com.maheshz.checkinout.ui.screens.HomeScreen
 import com.maheshz.checkinout.ui.screens.ProfileScreen
-import com.maheshz.checkinout.ui.screens.ActivationScreen // 🌟 FIXED: Imported new Activation Screen
+import com.maheshz.checkinout.ui.screens.ActivationScreen
 import com.maheshz.checkinout.ui.theme.MyApplicationTheme
 import com.maheshz.checkinout.ui.viewmodel.CheckInViewModel
 import com.maheshz.checkinout.ui.viewmodel.RegistrationViewModel
 import kotlinx.coroutines.launch
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.ui.text.font.FontWeight
@@ -39,13 +36,9 @@ import com.maheshz.checkinout.di.AppContainer
 import com.maheshz.checkinout.ui.screens.AIChatScreen
 import com.maheshz.checkinout.ui.screens.AIChatViewModel
 import com.maheshz.checkinout.ui.theme.BrandPurple
-import com.maheshz.checkinout.ui.theme.LightGrayBorder
 import com.maheshz.checkinout.ui.theme.NavIndicator
 import com.maheshz.checkinout.ui.theme.SecondaryText
 import com.maheshz.checkinout.ui.theme.WhiteSurface
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,7 +47,6 @@ class MainActivity : FragmentActivity() {
 
         setContent {
             MyApplicationTheme {
-                // 🌟 PROFESSIONAL ROUTING: We now track the activation status via the presence of an employee code.
                 val empCode by container.dataStoreManager.employeeCodeFlow.collectAsStateWithLifecycle(initialValue = null)
 
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -65,16 +57,10 @@ class MainActivity : FragmentActivity() {
                         )
                     )
 
-                    // 🌟 FIXED: Direct to Activation or MainApp based on empCode presence
                     if (empCode != null) {
                         MainApp(container)
                     } else {
-                        ActivationScreen(
-                            viewModel = regVm,
-                            onActivated = {
-                                // Empty lambda. DataStore update in ViewModel automatically triggers recomposition to MainApp!
-                            }
-                        )
+                        ActivationScreen(viewModel = regVm, onActivated = { })
                     }
                 }
             }
@@ -82,6 +68,7 @@ class MainActivity : FragmentActivity() {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun MainApp(container: AppContainer) {
     val navController = rememberNavController()
@@ -93,91 +80,66 @@ fun MainApp(container: AppContainer) {
                 shadowElevation = 16.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column {
-                    // Last Event row (visible only on Home, but keeping global for consistency)
-                    val navBackStackEntry by navController.currentBackStackEntryAsState()
-                    val currentRoute = navBackStackEntry?.destination?.route
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentRoute = navBackStackEntry?.destination?.route
 
-                    if (currentRoute == "home") {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 32.dp, vertical = 20.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text("RECENT ACTIVITY", style = MaterialTheme.typography.labelSmall, color = BrandPurple)
-                                val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
-                                Text("Last CHECK IN — ${sdf.format(Date())}", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                            }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text("TODAY", style = MaterialTheme.typography.labelSmall, color = SecondaryText)
-                                val sdfDate = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-                                Text(sdfDate.format(Date()), fontWeight = FontWeight.Medium, fontSize = 14.sp, color = SecondaryText)
-                            }
-                        }
-                        HorizontalDivider(color = LightGrayBorder)
-                    }
-
-                    NavigationBar(
-                        modifier = Modifier.fillMaxWidth().height(80.dp),
-                        containerColor = WhiteSurface,
-                        tonalElevation = 0.dp
-                    ) {
-                        NavigationBarItem(
-                            icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                            label = { Text("Home", fontWeight = FontWeight.Bold) },
-                            selected = currentRoute == "home",
-                            onClick = { navController.navigate("home") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = BrandPurple,
-                                selectedTextColor = BrandPurple,
-                                unselectedIconColor = SecondaryText,
-                                unselectedTextColor = SecondaryText,
-                                indicatorColor = NavIndicator
-                            )
+                NavigationBar(
+                    modifier = Modifier.fillMaxWidth().height(80.dp),
+                    containerColor = WhiteSurface,
+                    tonalElevation = 0.dp
+                ) {
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+                        label = { Text("Home", fontWeight = FontWeight.Bold) },
+                        selected = currentRoute == "home",
+                        onClick = { navController.navigate("home") },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = BrandPurple,
+                            selectedTextColor = BrandPurple,
+                            unselectedIconColor = SecondaryText,
+                            unselectedTextColor = SecondaryText,
+                            indicatorColor = NavIndicator
                         )
-                        NavigationBarItem(
-                            icon = { Icon(Icons.Default.History, contentDescription = "History") },
-                            label = { Text("History", fontWeight = FontWeight.Bold) },
-                            selected = currentRoute == "history",
-                            onClick = { navController.navigate("history") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = BrandPurple,
-                                selectedTextColor = BrandPurple,
-                                unselectedIconColor = SecondaryText,
-                                unselectedTextColor = SecondaryText,
-                                indicatorColor = NavIndicator
-                            )
+                    )
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Default.History, contentDescription = "History") },
+                        label = { Text("History", fontWeight = FontWeight.Bold) },
+                        selected = currentRoute == "history",
+                        onClick = { navController.navigate("history") },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = BrandPurple,
+                            selectedTextColor = BrandPurple,
+                            unselectedIconColor = SecondaryText,
+                            unselectedTextColor = SecondaryText,
+                            indicatorColor = NavIndicator
                         )
-                        NavigationBarItem(
-                            icon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "AI Chat") },
-                            label = { Text("AI Chat", fontWeight = FontWeight.Bold) },
-                            selected = currentRoute == "chat",
-                            onClick = { navController.navigate("chat") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = BrandPurple,
-                                selectedTextColor = BrandPurple,
-                                unselectedIconColor = SecondaryText,
-                                unselectedTextColor = SecondaryText,
-                                indicatorColor = NavIndicator
-                            )
+                    )
+                    NavigationBarItem(
+                        icon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "AI Chat") },
+                        label = { Text("AI Chat", fontWeight = FontWeight.Bold) },
+                        selected = currentRoute == "chat",
+                        onClick = { navController.navigate("chat") },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = BrandPurple,
+                            selectedTextColor = BrandPurple,
+                            unselectedIconColor = SecondaryText,
+                            unselectedTextColor = SecondaryText,
+                            indicatorColor = NavIndicator
                         )
-                        NavigationBarItem(
-                            icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-                            label = { Text("Profile", fontWeight = FontWeight.Bold) },
-                            selected = currentRoute == "profile",
-                            onClick = { navController.navigate("profile") },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = BrandPurple,
-                                selectedTextColor = BrandPurple,
-                                unselectedIconColor = SecondaryText,
-                                unselectedTextColor = SecondaryText,
-                                indicatorColor = NavIndicator
-                            )
+                    )
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
+                        label = { Text("Profile", fontWeight = FontWeight.Bold) },
+                        selected = currentRoute == "profile",
+                        onClick = { navController.navigate("profile") },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = BrandPurple,
+                            selectedTextColor = BrandPurple,
+                            unselectedIconColor = SecondaryText,
+                            unselectedTextColor = SecondaryText,
+                            indicatorColor = NavIndicator
                         )
-                    }
+                    )
                 }
             }
         }
@@ -195,26 +157,43 @@ fun MainApp(container: AppContainer) {
                 )
                 HomeScreen(vm)
             }
-            composable("history") {
-                HistoryScreen(container.attendanceRepository)
-            }
+            composable("history") { HistoryScreen(container.attendanceRepository) }
             composable("chat") {
                 val vm: AIChatViewModel = viewModel(
-                    factory = AIChatViewModel.provideFactory(
-                        container.apiService,
-                        container.dataStoreManager
-                    )
+                    factory = AIChatViewModel.provideFactory(container.apiService, container.dataStoreManager)
                 )
                 AIChatScreen(vm)
             }
             composable("profile") {
                 val scope = rememberCoroutineScope()
                 val name by container.dataStoreManager.fullNameFlow.collectAsState(initial = "")
+                val orgCode by container.dataStoreManager.orgCodeFlow.collectAsState(initial = "")
+
+                // Fetch the hardware ID (empCode) that was used to generate the Keystore entry
+                val empCode by container.dataStoreManager.employeeCodeFlow.collectAsState(initial = null)
+
                 ProfileScreen(
-                    onLogout = {
-                        scope.launch { container.dataStoreManager.clear() }
+                    onUnbindDevice = {
+                        scope.launch {
+                            // 1. Destroy the Cryptographic Key from the Android Hardware FIRST
+                            try {
+                                val keyStore = java.security.KeyStore.getInstance("AndroidKeyStore")
+                                keyStore.load(null)
+
+                                // Delete the key using the exact hardware ID we used to create it
+                                if (empCode != null && keyStore.containsAlias(empCode)) {
+                                    keyStore.deleteEntry(empCode)
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+
+                            // 2. Wipe the DataStore (Local Data) to force the app back to the ActivationScreen
+                            container.dataStoreManager.clear()
+                        }
                     },
-                    name = name ?: ""
+                    name = name ?: "Employee",
+                    orgCode = orgCode ?: "Company"
                 )
             }
         }

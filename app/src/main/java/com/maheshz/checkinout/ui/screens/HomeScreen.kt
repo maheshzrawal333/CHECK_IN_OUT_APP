@@ -1,13 +1,18 @@
 package com.maheshz.checkinout.ui.screens
 
+import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import androidx.biometric.BiometricPrompt
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -15,135 +20,156 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
-import com.maheshz.checkinout.ui.theme.BgColor
-import com.maheshz.checkinout.ui.theme.BrandPurple
-import com.maheshz.checkinout.ui.theme.DarkPurple
-import com.maheshz.checkinout.ui.theme.LightPurple
-import com.maheshz.checkinout.ui.theme.PaleTeal
-import com.maheshz.checkinout.ui.theme.PrimaryText
-import com.maheshz.checkinout.ui.theme.SecondaryText
-import com.maheshz.checkinout.ui.theme.TealAccent
+import com.maheshz.checkinout.ui.theme.*
 import com.maheshz.checkinout.ui.viewmodel.CheckInViewModel
 import com.maheshz.checkinout.ui.viewmodel.HomeState
 import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.*
+import kotlin.math.abs
 
 @Composable
-fun HomeScreen(viewModel: CheckInViewModel) {
+fun HomeScreen(viewModel: CheckInViewModel, orgName: String = "Company") {
     val state by viewModel.uiState.collectAsState()
     val name by viewModel.empName.collectAsState()
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
 
-    LaunchedEffect(state) {
-        if (state is HomeState.Found) {
-            val sig = viewModel.getSignatureObject()
-            if (sig != null) {
-                val activity = context as? FragmentActivity
-                if (activity != null) {
-                    val executor = ContextCompat.getMainExecutor(context)
-                    val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                        .setTitle("Verify your identity")
-                        .setSubtitle("Touch fingerprint sensor to check in/out")
-                        .setNegativeButtonText("Cancel")
-                        .build()
+    // Shake-to-Scan Listener
+    DisposableEffect(Unit) {
+        val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
-                    val biometricPrompt = BiometricPrompt(activity, executor, object : BiometricPrompt.AuthenticationCallback() {
-                        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                            super.onAuthenticationSucceeded(result)
-                            val signature = result.cryptoObject?.signature ?: return
-                            viewModel.onFingerprintSuccess(signature)
-                        }
+        var lastUpdate: Long = 0
+        var lastX = 0f
+        var lastY = 0f
+        var lastZ = 0f
+        val SHAKE_THRESHOLD = 600
 
-                        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                            super.onAuthenticationError(errorCode, errString)
-                            viewModel.resetState()
-                        }
-                    })
+        val sensorEventListener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent) {
+                if (state !is HomeState.Idle) return
 
-                    biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(sig))
+                val currentTime = System.currentTimeMillis()
+                if ((currentTime - lastUpdate) > 100) {
+                    val diffTime = currentTime - lastUpdate
+                    lastUpdate = currentTime
+
+                    val x = event.values[0]
+                    val y = event.values[1]
+                    val z = event.values[2]
+
+                    val speed = abs(x + y + z - lastX - lastY - lastZ) / diffTime * 10000
+                    if (speed > SHAKE_THRESHOLD) {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.startFlow()
+                    }
+
+                    lastX = x
+                    lastY = y
+                    lastZ = z
                 }
             }
-        } else if (state is HomeState.Success || state is HomeState.Failed || state is HomeState.Timeout) {
-            delay(3000)
-            viewModel.resetState()
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+
+        sensorManager.registerListener(sensorEventListener, accelerometer, SensorManager.SENSOR_DELAY_UI)
+        onDispose { sensorManager.unregisterListener(sensorEventListener) }
+    }
+
+    // Biometric Trigger Logic
+    LaunchedEffect(state) {
+        when (state) {
+            is HomeState.Found -> {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                val sig = viewModel.getSignatureObject()
+                if (sig != null) {
+                    val activity = context as? FragmentActivity
+                    if (activity != null) {
+                        val executor = ContextCompat.getMainExecutor(context)
+                        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                            .setTitle("Verify Identity")
+                            .setSubtitle("Authenticate to transmit check-in signature")
+                            .setNegativeButtonText("Cancel")
+                            .build()
+
+                        val biometricPrompt = BiometricPrompt(activity, executor, object : BiometricPrompt.AuthenticationCallback() {
+                            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                                super.onAuthenticationSucceeded(result)
+                                val signature = result.cryptoObject?.signature ?: return
+                                viewModel.onFingerprintSuccess(signature)
+                            }
+                            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                                super.onAuthenticationError(errorCode, errString)
+                                viewModel.resetState()
+                            }
+                        })
+                        biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(sig))
+                    }
+                }
+            }
+            is HomeState.Success -> {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                delay(3000)
+                viewModel.resetState()
+            }
+            is HomeState.Failed, is HomeState.Timeout, is HomeState.SecurityLockout -> {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+            else -> {}
         }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(BgColor)) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            // Top Header
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Header
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 24.dp, end = 24.dp, top = 32.dp, bottom = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 32.dp, bottom = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(LightPurple, CircleShape)
-                        .clip(CircleShape),
+                    modifier = Modifier.size(48.dp).background(LightPurple, CircleShape).clip(CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = name.firstOrNull()?.uppercase() ?: "U",
-                        color = DarkPurple,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    )
+                    Text(name.firstOrNull()?.uppercase() ?: "U", color = DarkPurple, fontWeight = FontWeight.Bold, fontSize = 20.sp)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "TECH SOLUTIONS INC.",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = BrandPurple
-                    )
-                    Text(
-                        text = name,
-                        style = MaterialTheme.typography.titleLarge
-                    )
+                    Text(orgName.uppercase(), style = MaterialTheme.typography.labelSmall, color = BrandPurple)
+                    Text(name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
             }
 
             // Scanner Area
             Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
+                modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                // Outer Ring 1
+                // Static decorative rings
                 Box(modifier = Modifier.size(256.dp).border(2.dp, PaleTeal, CircleShape))
-                // Outer Ring 2
                 Box(modifier = Modifier.size(224.dp).border(4.dp, TealAccent.copy(alpha=0.4f), CircleShape))
 
-                // Scanner Button
-                FingerprintButton(state = state, onClick = {
-                    if (state is HomeState.Idle) viewModel.startFlow()
-                })
+                // Central Fingerprint Button (Static)
+                FingerprintButton(state = state, onClick = { if (state is HomeState.Idle) viewModel.startFlow() })
             }
 
-            // Text Area
+            // Status Text Area
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 48.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 🌟 FIXED: Added HomeState.SecurityLockout to make the 'when' statement exhaustive
                 val (titleText, statusText, statusColor) = when (state) {
-                    is HomeState.Idle -> Triple("TAP TO\nCHECK IN/OUT", "SCANNER READY", SecondaryText)
+                    is HomeState.Idle -> Triple("SHAKE OR TAP\nTO CHECK IN", "SCANNER READY", SecondaryText)
                     is HomeState.Scanning -> Triple("SEARCHING\nFOR SCANNER", "LOOKING FOR DEVICE", Color(0xFFFFA000))
                     is HomeState.Found -> Triple("VERIFY\nIDENTITY", "BIOMETRIC PROMPT", BrandPurple)
                     is HomeState.Broadcasting -> Triple("BROADCASTING\nSIGNAL", "SENDING TO SCANNER", DarkPurple)
@@ -153,85 +179,76 @@ fun HomeScreen(viewModel: CheckInViewModel) {
                     is HomeState.SecurityLockout -> Triple("ACCOUNT\nLOCKED", "SECURITY BREACH", MaterialTheme.colorScheme.error)
                 }
 
-                Text(
-                    text = titleText,
-                    style = MaterialTheme.typography.displayLarge,
-                    color = PrimaryText,
-                    textAlign = TextAlign.Center
-                )
-
+                Text(titleText, style = MaterialTheme.typography.displayLarge, color = PrimaryText, textAlign = TextAlign.Center)
                 Spacer(modifier = Modifier.height(16.dp))
-
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(modifier = Modifier.size(8.dp).background(statusColor, CircleShape))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = statusText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SecondaryText
-                    )
+                    Text(statusText, style = MaterialTheme.typography.labelSmall, color = SecondaryText)
+                }
+            }
+
+            // Recent Activity
+            HorizontalDivider(color = LightGrayBorder)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("RECENT ACTIVITY", style = MaterialTheme.typography.labelSmall, color = BrandPurple)
+                    val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
+                    Text("Last Event — ${sdf.format(Date())}", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("TODAY", style = MaterialTheme.typography.labelSmall, color = SecondaryText)
+                    val sdfDate = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+                    Text(sdfDate.format(Date()), fontWeight = FontWeight.Medium, fontSize = 14.sp, color = SecondaryText)
                 }
             }
         }
 
-        // 🌟 FIXED: Full screen status overlays for Success/Fail/Lockout
+        // Dialogs
         if (state is HomeState.SecurityLockout) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Red.copy(alpha=0.95f)), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
-                    Icon(Icons.Default.Warning, contentDescription = "Security Breach", tint = Color.White, modifier = Modifier.size(64.dp))
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "ACCOUNT LOCKED",
-                        color = Color.White,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = (state as HomeState.SecurityLockout).reason,
-                        color = Color.White,
-                        textAlign = TextAlign.Center
-                    )
+            AlertDialog(
+                onDismissRequest = { },
+                confirmButton = { TextButton(onClick = { viewModel.resetState() }) { Text("Acknowledge") } },
+                icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                title = { Text("Security Breach Detected") },
+                text = { Text((state as HomeState.SecurityLockout).reason) }
+            )
+        } else if (state is HomeState.Failed || state is HomeState.Timeout) {
+            AlertDialog(
+                onDismissRequest = { viewModel.resetState() },
+                confirmButton = { TextButton(onClick = { viewModel.resetState() }) { Text("Dismiss") } },
+                title = { Text("Connection Failed") },
+                text = {
+                    val msg = if (state is HomeState.Failed) (state as HomeState.Failed).failureCode else "Could not connect to the scanner."
+                    Text("Error: $msg")
                 }
-            }
-        } else if (state is HomeState.Success) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Green.copy(alpha=0.9f)), contentAlignment = Alignment.Center) {
-                Text("CHECK ${(state as HomeState.Success).eventType} ✓", color = Color.White, style = MaterialTheme.typography.displayLarge, textAlign = TextAlign.Center)
-            }
-        } else if (state is HomeState.Failed) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Red.copy(alpha=0.9f)), contentAlignment = Alignment.Center) {
-                Text("FAILED\n${(state as HomeState.Failed).failureCode}", color = Color.White, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
-            }
+            )
         }
     }
 }
 
 @Composable
 fun FingerprintButton(state: HomeState, onClick: () -> Unit) {
-    val infiniteTransition = rememberInfiniteTransition()
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = if (state is HomeState.Scanning || state is HomeState.Broadcasting) 1.1f else 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        )
-    )
+    val iconColor = if (state is HomeState.Success) Color.White else TealAccent
+    val bgColor = if (state is HomeState.Success) TealAccent else Color.White
 
     Box(
         modifier = Modifier
             .size(192.dp)
-            .scale(scale)
-            .background(Color.White, CircleShape)
+            .background(bgColor, CircleShape)
             .border(8.dp, TealAccent, CircleShape)
             .clickable(enabled = state is HomeState.Idle) { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = Icons.Default.Fingerprint,
-            contentDescription = "Fingerprint",
+            imageVector = if (state is HomeState.Success) Icons.Default.Check else Icons.Default.Fingerprint,
+            contentDescription = "Action Icon",
             modifier = Modifier.size(96.dp),
-            tint = TealAccent
+            tint = iconColor
         )
     }
 }

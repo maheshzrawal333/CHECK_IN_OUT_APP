@@ -1,6 +1,8 @@
 package com.maheshz.checkinout.ui.screens
 
 import android.content.Intent
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,13 +19,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.maheshz.checkinout.data.repository.AttendanceRepository
 import com.maheshz.checkinout.model.AttendanceRecord
-import java.text.SimpleDateFormat
+import com.maheshz.checkinout.ui.theme.BrandPurple
+import java.time.Instant
+import java.time.YearMonth
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.*
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(repository: AttendanceRepository) {
@@ -35,9 +43,7 @@ fun HistoryScreen(repository: AttendanceRepository) {
     val shareCsv = {
         val csv = buildString {
             append("Type,Timestamp,VerifiedBy\n")
-            records.forEach {
-                append("${it.type},${Date(it.timestamp)},${it.verifiedBy}\n")
-            }
+            records.forEach { append("${it.type},${Date(it.timestamp)},${it.verifiedBy}\n") }
         }
         val sendIntent = Intent().apply {
             action = Intent.ACTION_SEND
@@ -50,14 +56,12 @@ fun HistoryScreen(repository: AttendanceRepository) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Attendance") },
+                title = { Text("Attendance History") },
                 actions = {
                     IconButton(onClick = { isListView = !isListView }) {
                         Icon(if (isListView) Icons.Default.DateRange else Icons.AutoMirrored.Filled.List, contentDescription = "Toggle View")
                     }
-                    IconButton(onClick = shareCsv) {
-                        Icon(Icons.Default.Share, contentDescription = "Export CSV")
-                    }
+                    IconButton(onClick = shareCsv) { Icon(Icons.Default.Share, contentDescription = "Export CSV") }
                 }
             )
         }
@@ -66,80 +70,97 @@ fun HistoryScreen(repository: AttendanceRepository) {
             if (isListView) {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(records) { r ->
-                        Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-                                .clickable { selectedRecord = r }) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).clickable { selectedRecord = r },
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text(r.type, style = MaterialTheme.typography.titleMedium)
+                                Text(r.type, style = MaterialTheme.typography.titleMedium, color = BrandPurple, fontWeight = FontWeight.Bold)
                                 Text(Date(r.timestamp).toString(), style = MaterialTheme.typography.bodyMedium)
-                                Text("Verified by: ${r.verifiedBy}", style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
                 }
             } else {
-                CalendarView(records = records) {
-                    selectedRecord = it
-                }
+                RealCalendarView(records = records, onRecordSelect = { selectedRecord = it })
             }
         }
 
         if (selectedRecord != null) {
             ModalBottomSheet(onDismissRequest = { selectedRecord = null }) {
                 Column(modifier = Modifier.padding(24.dp).fillMaxWidth()) {
-                    Text("Check Detail", style = MaterialTheme.typography.headlineSmall)
+                    Text("Check Detail", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Type: ${selectedRecord?.type}")
-                    Text("Time: ${selectedRecord?.timestamp?.let { Date(it) }}")
-                    Text("Verified by: SYSTEM")
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Text("Event Type: ${selectedRecord?.type}")
+                    Text("Timestamp: ${selectedRecord?.timestamp?.let { Date(it) }}")
+                    Text("Security Level: Verified by SYSTEM (Hardware ECDSA)")
+                    Spacer(modifier = Modifier.height(48.dp))
                 }
             }
         }
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun CalendarView(records: List<AttendanceRecord>, onRecordSelect: (AttendanceRecord) -> Unit) {
-    // Very basic placeholder representation of a calendar
-    val fmt = SimpleDateFormat("dd", Locale.getDefault())
-    val grouped = records.groupBy { fmt.format(Date(it.timestamp)) }
-    
-    // We just show a grid-like layout for days 1-30
+fun RealCalendarView(records: List<AttendanceRecord>, onRecordSelect: (AttendanceRecord) -> Unit) {
+    // 🌟 NOTE: This reads the system clock. If your emulator says 2036, it's an emulator setting!
+    val currentMonth = YearMonth.now()
+    val daysInMonth = currentMonth.lengthOfMonth()
+    val firstDayOfWeek = currentMonth.atDay(1).dayOfWeek.value % 7
+
+    val grouped = records.groupBy {
+        Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
+    }
+
     Column(modifier = Modifier.padding(16.dp)) {
-        for (row in 0 until 5) {
+        Text(
+            text = currentMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy")),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = BrandPurple
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            listOf("S", "M", "T", "W", "T", "F", "S").forEach {
+                Text(it, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, color = Color.Gray)
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+
+        var currentDay = 1
+        for (row in 0 until 6) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 for (col in 0 until 7) {
-                    val day = row * 7 + col + 1
-                    if (day <= 30) {
-                        val strDay = day.toString().padStart(2, '0')
-                        val dayRecords = grouped[strDay]
-                        
-                        // Fake logic: if standard weekend, grey. Assume 6,7 are weekend
-                        val isWeekend = col == 5 || col == 6
+                    if (row == 0 && col < firstDayOfWeek || currentDay > daysInMonth) {
+                        Box(modifier = Modifier.weight(1f).aspectRatio(1f)) // Empty cell
+                    } else {
+                        val date = currentMonth.atDay(currentDay)
+                        val dayRecords = grouped[date]
+
                         val bgColor = when {
-                            isWeekend -> Color.LightGray
-                            dayRecords != null && dayRecords.size >= 2 -> Color.Green.copy(alpha=0.6f)
-                            dayRecords != null && dayRecords.size == 1 -> Color(0xFFFFA000).copy(alpha=0.6f)
-                            else -> Color.Red.copy(alpha=0.3f)
+                            dayRecords != null && dayRecords.any { it.type.contains("CHECK_OUT") } -> Color.Green.copy(alpha = 0.6f)
+                            dayRecords != null -> Color(0xFFFFA000).copy(alpha = 0.6f)
+                            date.dayOfWeek.value >= 6 -> Color.LightGray.copy(alpha = 0.3f)
+                            else -> Color.Transparent
                         }
 
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .weight(1f)
+                                .aspectRatio(1f)
+                                .padding(4.dp)
                                 .background(bgColor, CircleShape)
-                                .clickable {
-                                    dayRecords?.firstOrNull()?.let { onRecordSelect(it) }
-                                },
+                                .clickable { dayRecords?.firstOrNull()?.let { onRecordSelect(it) } },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(strDay, textAlign = TextAlign.Center)
+                            Text(currentDay.toString(), textAlign = TextAlign.Center, fontWeight = if (dayRecords != null) FontWeight.Bold else FontWeight.Normal)
                         }
-                    } else {
-                        Box(modifier = Modifier.size(40.dp))
+                        currentDay++
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
