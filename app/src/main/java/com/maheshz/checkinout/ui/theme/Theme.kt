@@ -21,7 +21,6 @@ private val LightColorScheme =
 
 @Composable
 fun MyApplicationTheme(
-  // We force light theme and disable dynamic color to strictly apply the Bold Typography visual identity
   darkTheme: Boolean = false,
   dynamicColor: Boolean = false,
   content: @Composable () -> Unit,

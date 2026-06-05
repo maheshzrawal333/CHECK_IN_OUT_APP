@@ -132,7 +132,6 @@ fun HomeScreen(viewModel: CheckInViewModel, orgName: String = "Company") {
 
     Box(modifier = Modifier.fillMaxSize().background(BgColor)) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Header
             Row(
                 modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 32.dp, bottom = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -170,7 +169,6 @@ fun HomeScreen(viewModel: CheckInViewModel, orgName: String = "Company") {
             ) {
                 val (titleText, statusText, statusColor) = when (state) {
                     is HomeState.Idle -> Triple("SHAKE OR TAP\nTO CHECK IN", "SCANNER READY", SecondaryText)
-                    is HomeState.Scanning -> Triple("SEARCHING\nFOR SCANNER", "LOOKING FOR DEVICE", Color(0xFFFFA000))
                     is HomeState.Found -> Triple("VERIFY\nIDENTITY", "BIOMETRIC PROMPT", BrandPurple)
                     is HomeState.Broadcasting -> Triple("BROADCASTING\nSIGNAL", "SENDING TO SCANNER", DarkPurple)
                     is HomeState.Success -> Triple("SUCCESS\nVERIFIED", "VERIFICATION COMPLETE", TealAccent)

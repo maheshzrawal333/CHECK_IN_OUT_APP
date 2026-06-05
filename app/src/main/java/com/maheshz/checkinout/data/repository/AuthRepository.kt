@@ -61,7 +61,6 @@ class AuthRepository(
             val errBody = response.errorBody()?.string() ?: ""
             if (errBody.contains("Organization Code does not exist")) throw Exception("Organization Code does not exist.")
             if (errBody.contains("This email is already registered")) throw Exception("Email already used for this organization.")
-            // 🌟 CORRECTED: Matches the updated server error string mapping
             if (errBody.contains("Request limit exceeded")) throw Exception("Request limit exceeded: Max 3 requests per device within 24 hours.")
             throw Exception("Registration failed. Please try again.")
         }
@@ -77,7 +76,6 @@ class AuthRepository(
     }
 
     suspend fun checkStatus(): String {
-        // 🌟 FIXED: Extracted flow states asynchronously without passing an incorrect filter block
         val empCode = dataStoreManager.employeeCodeFlow.firstOrNull() ?: return "REJECTED"
         val orgCode = dataStoreManager.orgCodeFlow.firstOrNull() ?: return "REJECTED"
         val fp = dataStoreManager.getDeviceFingerprint()

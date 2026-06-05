@@ -8,6 +8,7 @@ import android.bluetooth.le.AdvertiseData
 import android.bluetooth.le.AdvertiseSettings
 import android.content.Context
 import android.os.ParcelUuid
+import java.nio.ByteBuffer
 import java.util.UUID
 
 class FpPacketAdvertiser(private val context: Context) {
@@ -16,7 +17,8 @@ class FpPacketAdvertiser(private val context: Context) {
         bluetoothManager.adapter
     }
 
-    private val BLE_RESPONSE_UUID = UUID.fromString("0000BBBB-0000-1000-8000-00805F9B34FB")
+    // UUID exactly matches the Kiosk's LUMEN_SERVICE_UUID
+    private val BLE_KIOSK_UUID = UUID.fromString("0000FEAA-0000-1000-8000-00805F9B34FB")
 
     @SuppressLint("MissingPermission")
     fun startAdvertising(employeeCode: String, timestamp: Long, signature: ByteArray, onComplete: () -> Unit) {
@@ -26,29 +28,22 @@ class FpPacketAdvertiser(private val context: Context) {
             .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
             .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
             .setConnectable(false)
-            .setTimeout(10000)
+            .setTimeout(10000) // Broadcast for exactly 10 seconds
             .build()
 
-        // 🌟 ENTERPRISE FIX: Increased packet size to 100 to safely hold a 72-byte DER ECDSA signature
-        val packet = ByteArray(100)
-        packet[0] = 0xCD.toByte()
-        packet[1] = 0xAB.toByte()
+        // Byte alignment perfectly matches the Kiosk parser
+        // Kiosk expects: 8 Bytes (Emp Code) + 8 Bytes (Timestamp Long) + N Bytes (Signature)
+        val empCodeBytes = employeeCode.padEnd(8, '\u0000').toByteArray(Charsets.UTF_8).copyOf(8)
 
-        val empBytes = employeeCode.padEnd(16, ' ').toByteArray(Charsets.UTF_8).copyOf(16)
-        System.arraycopy(empBytes, 0, packet, 2, 16)
-
-        val t = timestamp.toInt()
-        packet[18] = (t shr 24).toByte()
-        packet[19] = (t shr 16).toByte()
-        packet[20] = (t shr 8).toByte()
-        packet[21] = t.toByte()
-
-        // Safely copy the entire signature without truncation
-        System.arraycopy(signature, 0, packet, 22, signature.size)
+        val buffer = ByteBuffer.allocate(16 + signature.size)
+        buffer.put(empCodeBytes)
+        buffer.putLong(timestamp)
+        buffer.put(signature)
 
         val data = AdvertiseData.Builder()
-            .addServiceUuid(ParcelUuid(BLE_RESPONSE_UUID))
-            .addManufacturerData(0x0002, packet)
+            // Added as ServiceData, not ManufacturerData, because Kiosk uses record.serviceData
+            .addServiceData(ParcelUuid(BLE_KIOSK_UUID), buffer.array())
+            .setIncludeDeviceName(false) // Saves BLE packet bytes
             .build()
 
         advertiser.startAdvertising(settings, data, object : AdvertiseCallback() {

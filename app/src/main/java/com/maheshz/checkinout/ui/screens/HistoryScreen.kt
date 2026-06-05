@@ -104,7 +104,6 @@ fun HistoryScreen(repository: AttendanceRepository) {
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun RealCalendarView(records: List<AttendanceRecord>, onRecordSelect: (AttendanceRecord) -> Unit) {
-    // 🌟 NOTE: This reads the system clock. If your emulator says 2036, it's an emulator setting!
     val currentMonth = YearMonth.now()
     val daysInMonth = currentMonth.lengthOfMonth()
     val firstDayOfWeek = currentMonth.atDay(1).dayOfWeek.value % 7

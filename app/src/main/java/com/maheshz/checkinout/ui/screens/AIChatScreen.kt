@@ -70,7 +70,8 @@ class AIChatViewModel(
             try {
                 val response = apiService.chat(ChatRequest(text, sessionId))
                 if (response.isSuccessful) {
-                    val resString = response.body()?.string() ?: "No response"
+                    // 🌟 FIXED: Maps the response from the DTO directly to the text view
+                    val resString = response.body()?.response ?: "No response"
                     val filteredMsgs = _messages.value.filter { it !is ChatMessage.Typing }.toMutableList()
                     filteredMsgs.add(ChatMessage.AI(resString))
                     _messages.value = filteredMsgs
@@ -115,7 +116,6 @@ fun AIChatScreen(viewModel: AIChatViewModel) {
                 }
             )
         },
-        // 🌟 FIXED: Ensures the keyboard pushes the chat UI up instead of covering it
         modifier = Modifier.imePadding()
     ) { p ->
         Column(modifier = Modifier.padding(p).fillMaxSize()) {
@@ -142,7 +142,6 @@ fun AIChatScreen(viewModel: AIChatViewModel) {
             }
 
             Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(8.dp)) {
-                // 🌟 FIXED: Added horizontalScroll so chips don't overflow off the screen
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState).padding(bottom = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)

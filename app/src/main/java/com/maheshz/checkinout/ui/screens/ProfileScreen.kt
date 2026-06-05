@@ -6,7 +6,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Business
-import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.PhonelinkErase
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Warning
@@ -25,7 +24,7 @@ import com.maheshz.checkinout.ui.theme.LightPurple
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    onUnbindDevice: () -> Unit, // Renamed from onLogout for architectural accuracy
+    onUnbindDevice: () -> Unit,
     name: String,
     orgCode: String
 ) {
@@ -47,7 +46,6 @@ fun ProfileScreen(
         ) {
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Professional Avatar
             Box(
                 modifier = Modifier
                     .size(100.dp)
@@ -105,7 +103,6 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Destructive Action Button
             Button(
                 onClick = { showUnbindDialog = true },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -120,7 +117,6 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
 
-        // Security Warning Dialog (Crucial for Enterprise UX)
         if (showUnbindDialog) {
             AlertDialog(
                 onDismissRequest = { showUnbindDialog = false },

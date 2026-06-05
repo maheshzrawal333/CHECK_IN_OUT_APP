@@ -81,8 +81,6 @@ class DataStoreManager(private val context: Context) {
         context.dataStore.edit { it[SESSION_ID] = id }
     }
 
-    // 🌟 FIXED: Matched the preferences keys exactly to what is defined in the companion object
-
     suspend fun saveOrgCode(orgCode: String) {
         context.dataStore.edit { preferences ->
             preferences[ORG_CODE] = orgCode

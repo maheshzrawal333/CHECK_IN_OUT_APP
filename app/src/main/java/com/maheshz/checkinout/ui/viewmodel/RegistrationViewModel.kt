@@ -22,22 +22,21 @@ class RegistrationViewModel(
     private val _uiState = MutableStateFlow<RegistrationState>(RegistrationState.Idle)
     val uiState: StateFlow<RegistrationState> = _uiState.asStateFlow()
 
-    // 🌟 The NEW Enterprise Activation Method
     fun activateWithCode(activationCode: String) {
         viewModelScope.launch {
             _uiState.value = RegistrationState.Loading
             try {
-                // 1. Generate a unique Hardware ID for this specific phone installation
+                // Generate a unique Hardware ID for this specific phone installation
                 val hardwareId = UUID.randomUUID().toString()
 
-                // 2. 🌟 PRO FIX: Move heavy Keystore cryptography to the IO Background Thread
-                // This prevents the 1.4-second UI freeze (Choreographer skipped frames) we saw in your logs.
+                // Move heavy Keystore cryptography to the IO Background Thread
+                // This prevents the 1.4-second UI freeze (Choreographer skipped frames).
                 val publicKey = withContext(Dispatchers.IO) {
                     FingerprintSecurityManager.generateStrictBiometricKey(hardwareId)
                     FingerprintSecurityManager.getPublicKeyBase64(hardwareId)
                 }
 
-                // 3. Send the code, the public key, and the hardware ID to Spring Boot
+                // Send the code, the public key, and the hardware ID to Spring Boot
                 val response = authRepository.activateDeviceWithCode(
                     activationCode.trim().uppercase(),
                     publicKey,
@@ -47,17 +46,23 @@ class RegistrationViewModel(
                 if (response.isSuccessful) {
                     val responseBody = response.body()
 
-                    // 🌟 ENTERPRISE FIX: Dynamically pull the real user and company names from the server!
-                    // If the backend doesn't return them yet, it safely falls back to a default value.
+                    // Dynamically pull the real user and company names from the server!
                     val realName = responseBody?.get("fullName") ?: "Unknown Employee"
-                    val realOrg = responseBody?.get("orgName") ?: (activationCode.split("-").firstOrNull() ?: "Company")
+                    val realOrgCode = responseBody?.get("orgCode") ?: (activationCode.split("-").firstOrNull() ?: "UNKNOWN")
 
-                    // 4. Save the real data locally so the Check-In screen knows exactly who we are
-                    dataStoreManager.saveOrgCode(realOrg)
+                    // Extract the JWT tokens provided by the Server
+                    val accessToken = responseBody?.get("access_token") ?: ""
+                    val refreshToken = responseBody?.get("refresh_token") ?: ""
+
+                    // Save the real data locally so the Check-In screen knows exactly who we are
+                    dataStoreManager.saveOrgCode(realOrgCode)
                     dataStoreManager.saveEmployeeCode(hardwareId)
                     dataStoreManager.saveFullName(realName)
 
-                    // 5. Trigger success to move to the Scanner Ring Screen
+                    // Save the tokens! Without this, the AI Chat gets a 403 Forbidden.
+                    dataStoreManager.saveTokens(accessToken, refreshToken)
+
+                    // Trigger success to move to the Scanner Ring Screen
                     _uiState.value = RegistrationState.Success
                 } else {
                     _uiState.value = RegistrationState.Error("Invalid or Expired Activation Code.")

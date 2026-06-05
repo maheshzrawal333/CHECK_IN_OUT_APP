@@ -4,43 +4,43 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.*
+import com.maheshz.checkinout.di.AppContainer
+import com.maheshz.checkinout.ui.screens.AIChatScreen
+import com.maheshz.checkinout.ui.screens.AIChatViewModel
+import com.maheshz.checkinout.ui.screens.ActivationScreen
 import com.maheshz.checkinout.ui.screens.HistoryScreen
 import com.maheshz.checkinout.ui.screens.HomeScreen
 import com.maheshz.checkinout.ui.screens.ProfileScreen
-import com.maheshz.checkinout.ui.screens.ActivationScreen
+import com.maheshz.checkinout.ui.theme.BrandPurple
 import com.maheshz.checkinout.ui.theme.MyApplicationTheme
+import com.maheshz.checkinout.ui.theme.NavIndicator
+import com.maheshz.checkinout.ui.theme.SecondaryText
+import com.maheshz.checkinout.ui.theme.WhiteSurface
 import com.maheshz.checkinout.ui.viewmodel.CheckInViewModel
 import com.maheshz.checkinout.ui.viewmodel.RegistrationViewModel
 import kotlinx.coroutines.launch
 
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.ui.text.font.FontWeight
-import com.maheshz.checkinout.di.AppContainer
-import com.maheshz.checkinout.ui.screens.AIChatScreen
-import com.maheshz.checkinout.ui.screens.AIChatViewModel
-import com.maheshz.checkinout.ui.theme.BrandPurple
-import com.maheshz.checkinout.ui.theme.NavIndicator
-import com.maheshz.checkinout.ui.theme.SecondaryText
-import com.maheshz.checkinout.ui.theme.WhiteSurface
-
 class MainActivity : FragmentActivity() {
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val container = (application as CheckInOutApp).container
@@ -148,9 +148,7 @@ fun MainApp(container: AppContainer) {
             composable("home") {
                 val vm: CheckInViewModel = viewModel(
                     factory = CheckInViewModel.provideFactory(
-                        container.iotBeaconScanner,
                         container.fpPacketAdvertiser,
-                        container.resultReceiver,
                         container.dataStoreManager,
                         container.attendanceRepository
                     )
@@ -168,27 +166,20 @@ fun MainApp(container: AppContainer) {
                 val scope = rememberCoroutineScope()
                 val name by container.dataStoreManager.fullNameFlow.collectAsState(initial = "")
                 val orgCode by container.dataStoreManager.orgCodeFlow.collectAsState(initial = "")
-
-                // Fetch the hardware ID (empCode) that was used to generate the Keystore entry
                 val empCode by container.dataStoreManager.employeeCodeFlow.collectAsState(initial = null)
 
                 ProfileScreen(
                     onUnbindDevice = {
                         scope.launch {
-                            // 1. Destroy the Cryptographic Key from the Android Hardware FIRST
                             try {
                                 val keyStore = java.security.KeyStore.getInstance("AndroidKeyStore")
                                 keyStore.load(null)
-
-                                // Delete the key using the exact hardware ID we used to create it
                                 if (empCode != null && keyStore.containsAlias(empCode)) {
                                     keyStore.deleteEntry(empCode)
                                 }
                             } catch (e: Exception) {
                                 e.printStackTrace()
                             }
-
-                            // 2. Wipe the DataStore (Local Data) to force the app back to the ActivationScreen
                             container.dataStoreManager.clear()
                         }
                     },

@@ -3,8 +3,6 @@ package com.maheshz.checkinout.di
 import android.content.Context
 import androidx.room.Room
 import com.maheshz.checkinout.ble.FpPacketAdvertiser
-import com.maheshz.checkinout.ble.IotBeaconScanner
-import com.maheshz.checkinout.ble.ResultReceiver
 import com.maheshz.checkinout.data.local.AppDatabase
 import com.maheshz.checkinout.data.remote.ApiService
 import com.maheshz.checkinout.data.remote.AuthInterceptor
@@ -39,7 +37,6 @@ class AppContainer(private val context: Context) {
 
     val apiService: ApiService by lazy {
         Retrofit.Builder()
-            // 🌟 FIXED: Points your employee app to your live running server tunnel link
             .baseUrl("https://subprime-encircle-guiding.ngrok-free.dev/")
             .client(okHttpClient)
             .addConverterFactory(MoshiConverterFactory.create(moshi))
@@ -57,12 +54,10 @@ class AppContainer(private val context: Context) {
 
     val attendanceRepository: AttendanceRepository by lazy {
         AttendanceRepository(
-            dao = appDatabase.attendanceDao(), // 🌟 FIXED: Changed 'database' to 'appDatabase' to match your variable above
+            dao = appDatabase.attendanceDao(),
             apiService = apiService
         )
     }
 
-    val iotBeaconScanner: IotBeaconScanner by lazy { IotBeaconScanner(context) }
     val fpPacketAdvertiser: FpPacketAdvertiser by lazy { FpPacketAdvertiser(context) }
-    val resultReceiver: ResultReceiver by lazy { ResultReceiver(context) }
 }

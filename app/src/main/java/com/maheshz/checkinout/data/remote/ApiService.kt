@@ -3,7 +3,6 @@ package com.maheshz.checkinout.data.remote
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import kotlinx.serialization.Serializable
-import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -23,10 +22,11 @@ data class RegisterRequest(
 data class RegisterResponse(
     @Json(name = "employee_id") val employee_id: String,
     @Json(name = "org_id") val org_id: String,
-    @Json(name = "employee_code") val employee_code: String, // Ensure this property is explicitly present!
+    @Json(name = "employee_code") val employee_code: String,
     @Json(name = "jwt_access_token") val jwt_access_token: String,
     @Json(name = "jwt_refresh_token") val jwt_refresh_token: String
 )
+
 @Serializable
 data class RefreshTokenRequest(
     val refresh_token: String
@@ -40,15 +40,25 @@ data class RefreshTokenResponse(
 @Serializable
 data class ChatRequest(
     val message: String,
-    val session_id: String
+    val sessionId: String
 )
 
+@Serializable
+data class AiChatResponse(
+    val response: String,
+    val sessionId: String
+)
+
+data class ScanStatusResponse(
+    val status: String,
+    val eventType: String
+)
 
 @Suppress("ANNOTATION_TARGETS_NON_EXISTENT_EXPRESSION")
 interface ApiService {
 
     @PUT("/api/employee/me")
-    suspend fun updateProfile() // Add body
+    suspend fun updateProfile()
 
     @PUT("/api/employee/me/fingerprint")
     suspend fun reEnrollFingerprint()
@@ -65,11 +75,9 @@ interface ApiService {
     @POST("/api/public/token/refresh")
     suspend fun refreshToken(@Body request: RefreshTokenRequest): RefreshTokenResponse
 
-    @Streaming
     @POST("/api/ai/chat")
-    suspend fun chat(@Body request: ChatRequest): Response<ResponseBody>
+    suspend fun chat(@Body request: ChatRequest): Response<AiChatResponse>
 
-    // Change return type to Response<Map> to read HTTP 400 Bad Request error bodies safely
     @POST("/api/public/employee/register-simplified")
     suspend fun registerSimplified(@Body request: SimplifiedRegisterRequest): Response<Map<String, String>>
 
@@ -88,8 +96,3 @@ interface ApiService {
     @GET("/api/public/employee/scan-status/{empCode}")
     suspend fun checkLatestScanStatus(@Path("empCode") empCode: String): Response<ScanStatusResponse>
 }
-
-data class ScanStatusResponse(
-    val status: String,      // "SUCCESS", "WAITING", or "IGNORED"
-    val eventType: String    // "CHECK_IN" or "CHECK_OUT"
-)
