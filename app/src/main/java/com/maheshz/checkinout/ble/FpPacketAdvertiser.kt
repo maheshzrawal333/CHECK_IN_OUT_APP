@@ -17,7 +17,7 @@ class FpPacketAdvertiser(private val context: Context) {
         bluetoothManager.adapter
     }
 
-    // UUID exactly matches the Kiosk's LUMEN_SERVICE_UUID
+    // UUID exactly matches the IOI DEVICE APP LUMEN_SERVICE_UUID
     private val BLE_KIOSK_UUID = UUID.fromString("0000FEAA-0000-1000-8000-00805F9B34FB")
 
     @SuppressLint("MissingPermission")
@@ -31,8 +31,8 @@ class FpPacketAdvertiser(private val context: Context) {
             .setTimeout(10000) // Broadcast for exactly 10 seconds
             .build()
 
-        // Byte alignment perfectly matches the Kiosk parser
-        // Kiosk expects: 8 Bytes (Emp Code) + 8 Bytes (Timestamp Long) + N Bytes (Signature)
+        // Byte alignment perfectly matches the  parser
+        // expects: 8 Bytes (Emp Code) + 8 Bytes (Timestamp Long) + N Bytes (Signature)
         val empCodeBytes = employeeCode.padEnd(8, '\u0000').toByteArray(Charsets.UTF_8).copyOf(8)
 
         val buffer = ByteBuffer.allocate(16 + signature.size)
