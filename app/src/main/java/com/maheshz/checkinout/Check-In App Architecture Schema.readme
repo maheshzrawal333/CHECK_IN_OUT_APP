@@ -1,0 +1,42 @@
+com.maheshz.checkinout
+│
+├── 📄 CheckInOutApp.java                # Application Class
+├── 📄 MainActivity.java                 # Entry Point & Navigation Host
+│
+├── 📁 ble/                              # 📶 Bluetooth Identity Broadcast
+│   └── 📄 FpPacketAdvertiser.java       # Broadcasts BLE payloads (Emp ID + Signature)
+│
+├── 📁 data/                             # 💾 Data Layer
+│   ├── 📁 local/                        # Room Database (Offline History)
+│   │   ├── 📄 AppDatabase.java
+│   │   └── 📄 AttendanceDao/Record.java # Caches "Check In/Out" success events
+│   │
+│   ├── 📁 remote/                       # Retrofit Networking
+│   │   ├── 📄 ApiService.java           # Endpoint definitions
+│   │   ├── 📄 AuthInterceptor.java      # Injects Bearer tokens
+│   │   ├── 📄 TokenAuthenticator.java   # Auto-refreshes expired tokens
+│   │   └── 📄 Dtos.java                 # Network Data Transfer Objects
+│   │
+│   └── 📁 repository/                   # Single Source of Truth
+│       ├── 📄 AttendanceRepository.java # Manages records and server-polling
+│       └── 📄 AuthRepository.java       # Handles Activation & JWT lifecycle
+│
+├── 📁 di/                               # 💉 Dependency Injection
+│   └── 📄 AppContainer.java             # Manual DI (Retrofit, DB, Repos)
+│
+├── 📁 ui/                               # 🖥️ Presentation Layer (Compose)
+│   ├── 📁 screens/                      # UI Views
+│   │   ├── 📄 ActivationScreen.java     # The 1-time setup screen
+│   │   ├── 📄 HomeScreen.java           # The "Shake/Tap to Scan" screen
+│   │   ├── 📄 HistoryScreen.java        # Calendar & List view of logs
+│   │   ├── 📄 AIChatScreen.java         # RAG-enabled chatbot
+│   │   └── 📄 ProfileScreen.java        # Identity & Unbind controls
+│   │
+│   ├── 📁 theme/                        # Material 3 Styling
+│   └── 📁 viewmodel/                    # State Management
+│       ├── 📄 CheckInViewModel.java     # Biometrics & BLE state machine
+│       └── 📄 RegistrationViewModel.java# Activation network calls
+│
+└── 📁 util/                             # 🛠️ Core Infrastructure
+    ├── 📄 DataStoreManager.java         # Encrypted JWT & Profile caching
+    └── 📄 FingerprintSecurityManager.java # Hardware Keystore & Biometric bindings

@@ -72,7 +72,6 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            // Corporate Information Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -88,7 +87,7 @@ fun ProfileScreen(
                         }
                     }
 
-                    Divider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Security, contentDescription = "Security", tint = BrandPurple)

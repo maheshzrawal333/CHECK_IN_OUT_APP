@@ -61,8 +61,6 @@ class CheckInViewModel(
 
         when (val result = FingerprintSecurityManager.getStrictSignatureObject(alias)) {
             is FingerprintSecurityManager.SignatureResult.Ready -> {
-                // Bypasses scanner.startScanning() and goes straight to Biometric Prompt.
-                // The phone is the only broadcaster in this ecosystem.
                 _uiState.value = HomeState.Found("KIOSK")
             }
             is FingerprintSecurityManager.SignatureResult.Invalidated -> {
@@ -95,16 +93,25 @@ class CheckInViewModel(
             _uiState.value = HomeState.Broadcasting(10)
             advertiser.startAdvertising(empCode, timestamp, signatureBytes) { }
 
-            // Enterprise Hybrid Polling Loop - Asks Server if Kiosk succeeded
+            // Safe Polling Mechanism preventing overlapping requests
             val result = withTimeoutOrNull(10_000L) {
                 var verifiedEventType: String? = null
+                var isRequestInFlight = false
+
                 while (verifiedEventType == null) {
-                    try {
-                        val response = attendanceRepository.checkLatestScanStatus(empCode)
-                        if (response.isSuccessful && response.body()?.status == "SUCCESS") {
-                            verifiedEventType = response.body()?.eventType
+                    if (!isRequestInFlight) {
+                        isRequestInFlight = true
+                        try {
+                            val response = attendanceRepository.checkLatestScanStatus(empCode)
+                            if (response.isSuccessful && response.body()?.status == "SUCCESS") {
+                                verifiedEventType = response.body()?.eventType
+                            }
+                        } catch (e: Exception) {
+                            // Ignore network blips during polling
+                        } finally {
+                            isRequestInFlight = false
                         }
-                    } catch (e: Exception) {}
+                    }
                     delay(1500)
                 }
                 verifiedEventType

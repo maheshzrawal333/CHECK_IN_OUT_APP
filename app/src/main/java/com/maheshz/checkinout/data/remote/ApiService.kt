@@ -57,20 +57,11 @@ data class ScanStatusResponse(
 @Suppress("ANNOTATION_TARGETS_NON_EXISTENT_EXPRESSION")
 interface ApiService {
 
-    @PUT("/api/employee/me")
-    suspend fun updateProfile()
-
-    @PUT("/api/employee/me/fingerprint")
-    suspend fun reEnrollFingerprint()
-
     @POST("/api/employee/logout")
     suspend fun logout()
 
     @DELETE("/api/employee/me")
     suspend fun deleteAccount()
-
-    @POST("/api/public/employee/register")
-    suspend fun register(@Body request: RegisterRequest): RegisterResponse
 
     @POST("/api/public/token/refresh")
     suspend fun refreshToken(@Body request: RefreshTokenRequest): RefreshTokenResponse
@@ -78,19 +69,9 @@ interface ApiService {
     @POST("/api/ai/chat")
     suspend fun chat(@Body request: ChatRequest): Response<AiChatResponse>
 
-    @POST("/api/public/employee/register-simplified")
-    suspend fun registerSimplified(@Body request: SimplifiedRegisterRequest): Response<Map<String, String>>
-
     @POST("/api/public/employee/activate")
     suspend fun activateDeviceWithCode(
         @Body request: Map<String, String>
-    ): Response<Map<String, String>>
-
-    @GET("/api/public/employee/{employeeCode}/status")
-    suspend fun checkStatus(
-        @Path("employeeCode") employeeCode: String,
-        @Query("orgCode") orgCode: String,
-        @Query("fp") fingerprint: String
     ): Response<Map<String, String>>
 
     @GET("/api/public/employee/scan-status/{empCode}")
